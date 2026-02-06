@@ -2,7 +2,7 @@ name: Update BCV USD Rate
 
 on:
   schedule:
-    - cron: "0 */6 * * *"   # cada 6 horas
+    - cron: "0 */6 * * *"
   workflow_dispatch:
 
 jobs:
@@ -20,28 +20,21 @@ jobs:
 
           echo "📥 Descargando tasa BCV..."
 
-          curl -L --fail --retry 5 --retry-delay 3 \
-            -H "User-Agent: stitchfinance-rate-bot" \
-            -H "Accept: application/json" \
-            https://ve.dolarapi.com/v1/dolares/bcv \
+          curl -L \
+            -H "User-Agent: Mozilla/5.0" \
+            -sS \
+            https://ve.dolarapi.com/v1/dolares/oficial \
             -o data/dolar.tmp.json
 
-          echo "🔎 Validando contenido..."
+          echo "Contenido descargado:"
+          cat data/dolar.tmp.json
 
-          # Verifica que el archivo no esté vacío
-          if [ ! -s data/dolar.tmp.json ]; then
-            echo "❌ Error: Respuesta vacía (0 bytes)"
-            exit 1
-          fi
-
-          # Verifica que sea JSON válido con campo promedio
           if grep -q '"promedio"' data/dolar.tmp.json; then
             mv data/dolar.tmp.json data/dolar.json
-            echo "✅ dolar.json actualizado correctamente"
+            echo "✅ dolar.json actualizado"
           else
-            echo "❌ Error: JSON inválido"
-            echo "Contenido descargado:"
-            cat data/dolar.tmp.json
+            echo "❌ Descarga inválida. No se reemplaza dolar.json"
+            rm -f data/dolar.tmp.json
             exit 1
           fi
 
@@ -49,13 +42,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
           git add data/dolar.json
-
-          if git diff --staged --quiet; then
-            echo "ℹ️ No hubo cambios en dolar.json"
-          else
-            git commit -m "chore: update dolar.json"
-            git push
-            echo "🚀 Cambios enviados al repo"
-          fi
+          git diff --staged --quiet || git commit -m "chore: update dolar.json"
+          git push
