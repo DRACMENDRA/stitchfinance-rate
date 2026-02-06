@@ -3,7 +3,7 @@ name: Update BCV USD Rate
 on:
   schedule:
     - cron: "0 */6 * * *"   # cada 6 horas
-  workflow_dispatch:        # botón manual "Run workflow"
+  workflow_dispatch:
 
 jobs:
   update:
@@ -13,10 +13,25 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Download BCV rate JSON
+      - name: Download BCV rate JSON (safe)
         run: |
+          set -e
           mkdir -p data
-          curl -s https://ve.dolarapi.com/v1/dolares/bcv > data/dolar.json
+
+          # Descargar a un archivo temporal
+          curl -sS https://ve.dolarapi.com/v1/dolares/bcv -o data/dolar.tmp.json
+
+          # Validación: debe contener "promedio"
+          if grep -q '"promedio"' data/dolar.tmp.json; then
+            mv data/dolar.tmp.json data/dolar.json
+            echo "✅ dolar.json actualizado"
+          else
+            echo "❌ Descarga inválida. No se reemplaza dolar.json"
+            echo "Contenido descargado:"
+            cat data/dolar.tmp.json
+            rm -f data/dolar.tmp.json
+            exit 1
+          fi
 
       - name: Commit and push if changed
         run: |
