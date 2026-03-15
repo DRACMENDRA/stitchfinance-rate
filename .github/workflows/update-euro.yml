@@ -1,0 +1,47 @@
+name: Update BCV EUR Rate
+
+on:
+  schedule:
+    - cron: "5 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Download BCV euro rate JSON (robust)
+        run: |
+          set -e
+          mkdir -p data
+
+          echo "📥 Descargando tasa Euro BCV..."
+
+          curl -L \
+            -H "User-Agent: Mozilla/5.0" \
+            -sS \
+            https://ve.dolarapi.com/v1/euros/oficial \
+            -o data/euro.tmp.json
+
+          echo "Contenido descargado:"
+          cat data/euro.tmp.json
+
+          if grep -q '"promedio"' data/euro.tmp.json; then
+            mv data/euro.tmp.json data/euro.json
+            echo "✅ euro.json actualizado"
+          else
+            echo "❌ Descarga inválida. No se reemplaza euro.json"
+            rm -f data/euro.tmp.json
+            exit 1
+          fi
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/euro.json
+          git diff --staged --quiet || git commit -m "chore: update euro.json"
+          git push
